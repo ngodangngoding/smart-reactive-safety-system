@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  // First Google sign-in with no matching account: no permissions, no organization, until a SUPERADMIN assigns a role.
+  PENDING
+}
+
+model License {
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String
+  maxDevice  Int
+  // Business calendar dates (no time, no timezone); valid through the whole endDate day.
+  startDate  DateTime  @db.Date
+  endDate    DateTime  @db.Date
+  is_deleted Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  organization Organization?
+}
+
+model Organization {
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String
+  licenseId  String?   @unique @db.Uuid
+  isActive   Boolean   @default(true)
+  is_deleted Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  license     License?     @relation(fields: [licenseId], references: [id], onDelete: Restrict)
+  users       User[]
+  workers     Worker[]
+  workerNodes WorkerNode[]
+  incidents   Incident[]
+  auditLogs   AuditLog[]
+}
+
+model User {
+  id             String    @id @default(uuid()) @db.Uuid
+  name           String
+  email          String    @unique
+  passwordHash   String
+  // false only for a Google-only account that never chose a real password: settings/security lets it set one without the (nonexistent) current password.
+  hasPassword    Boolean   @default(true)
+  // Site-relative path under public/ (e.g. "/uploads/avatars/<uuid>.webp"), served by Next.js's own static handler.
+  avatarUrl      String?
+  tokenVersion   Int       @default(0)
+  lastLoginAt    DateTime? @db.Timestamptz(6)
+  googleLinkedAt DateTime? @db.Timestamptz(6)
+  role           UserRole
+  organizationId String?   @db.Uuid
+  isActive       Boolean   @default(true)
+  is_deleted     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  resolvedIncidents Incident[]    @relation("IncidentResolvedBy")
+  auditLogs         AuditLog[]    @relation("AuditPerformedBy")
+}
+
+model Worker {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  workerCode     String    @unique
+  name           String
+  isActive       Boolean   @default(true)
+  is_deleted     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  workerNode WorkerNode?
+
+  incidents Incident[]
+}
+
+model WorkerNode {
+  id                     String    @id @default(uuid()) @db.Uuid
+  organizationId         String    @db.Uuid
+  deviceWorkerId         Float?    @unique @db.Real
+  workerId               String?   @unique @db.Uuid
+  archivedDeviceWorkerId Float?    @db.Real
+  archivedWorkerId       String?   @db.Uuid
+  isActive               Boolean   @default(true)
+  is_deleted             Boolean   @default(false)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  deletedAt              DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  worker       Worker?      @relation(fields: [workerId], references: [id], onDelete: Restrict)
+
+  telemetry Telemetry[]
+  incidents Incident[]
+}
+
+model Telemetry {
+  id              String  @id @default(uuid()) @db.Uuid
+  workerNodeId    String  @db.Uuid
+  sequence        Float   @db.Real
+  accelY          Float   @db.Real
+  longitude       Decimal @db.Decimal(10, 7)
+  deviceTimestamp Float   @db.Real
+  temperature     Float   @db.Real
+  sos             Boolean
+  gyroZ           Float   @db.Real
+  latitude        Decimal @db.Decimal(10, 7)
+  satellites      Float   @db.Real
+  altitude        Float   @db.Real
+  batteryPercent  Float   @db.Real
+  humidity        Float   @db.Real
+  gyroX           Float   @db.Real
+  pressure        Float   @db.Real
+  batteryVoltage  Float   @db.Real
+  accelX          Float   @db.Real
+  accelZ          Float   @db.Real
+  gyroY           Float   @db.Real
+
+  is_deleted Boolean  @default(false)
+  receivedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  workerNode      WorkerNode @relation(fields: [workerNodeId], references: [id], onDelete: Restrict)
+  openedIncidents Incident[] @relation("IncidentOpenedByTelemetry")
+}
+
+model Incident {
+  id             String  @id @default(uuid()) @db.Uuid
+  organizationId String  @db.Uuid
+  workerNodeId   String  @db.Uuid
+  workerId       String? @db.Uuid
+  status         String  @default("ACTIVE") @db.VarChar(20)
+
+  startedAt          DateTime  @default(now()) @db.Timestamptz(6)
+  resolvedAt         DateTime? @db.Timestamptz(6)
+  resolvedById       String?   @db.Uuid
+  triggerTelemetryId String?   @db.Uuid
+  latitude           Decimal?  @db.Decimal(10, 7)
+  longitude          Decimal?  @db.Decimal(10, 7)
+  altitude           Float?    @db.Real
+  satellites         Float?    @db.Real
+  resolutionNote     String?   @db.VarChar(500)
+
+  is_deleted Boolean   @default(false)
+  deletedAt  DateTime? @db.Timestamptz(6)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  workerNode       WorkerNode   @relation(fields: [workerNodeId], references: [id], onDelete: Restrict)
+  worker           Worker?      @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  resolvedBy       User?        @relation("IncidentResolvedBy", fields: [resolvedById], references: [id], onDelete: Restrict)
+  triggerTelemetry Telemetry?   @relation("IncidentOpenedByTelemetry", fields: [triggerTelemetryId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String?  @db.Uuid
+  performedByUserId String?  @db.Uuid
+  action            String
+  metadata          Json?
+  is_deleted        Boolean  @default(false)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  performedBy  User?         @relation("AuditPerformedBy", fields: [performedByUserId], references: [id], onDelete: Restrict)
+}

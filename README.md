@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Smart Reactive Safety System for Lone Worker
 
-## Getting Started
+Next.js (App Router) + Prisma 7 + PostgreSQL + Redis. Backend in `src/app/api/**`, shared helpers in `src/lib/**`, browser API calls in `src/services/**`. Repository rules live in [AGENTS.md](AGENTS.md).
 
-First, run the development server:
+## Setup
 
 ```bash
+cp .env.example .env            # then fill DATABASE_URL, JWT_SECRET, SUPERADMIN_*, TELEMETRY_WEBHOOK_SECRET
+docker compose up -d            # Postgres (host port 5433) and Redis (host port 6379)
+npm install
+npx prisma migrate deploy
+npx prisma generate
+npm run db:seed                 # SUPERADMIN + a sample license, organization, ADMIN, 3 workers, 2 devices
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+If the Redis container already existed from before the `ports` mapping was added, recreate it: `docker compose up -d --no-deps redis`.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+`npm run build` needs a few GB of free memory (the React compiler runs in a Node subprocess). If it crashes with `os error 10054` or "paging file is too small", close other apps or run `NODE_OPTIONS=--max-old-space-size=768 npm run build`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment
 
-## Learn More
+See [.env.example](.env.example). Highlights:
 
-To learn more about Next.js, take a look at the following resources:
+| Variable | Purpose |
+|---|---|
+| `REDIS_URL`, `REDIS_KEY_PREFIX` | OTP, reset tokens, revoked refresh tokens, telemetry dedupe |
+| `OTP_*`, `RESET_TOKEN_TTL_SECONDS` | forgot-password limits |
+| `MAIL_DRIVER` | `log` prints the OTP to the server log; `smtp` sends real email (needs `SMTP_*`, `MAIL_FROM`) |
+| `GOOGLE_CLIENT_ID` | enables `POST /api/auth/google` (body `{ idToken }`, a Google Identity Services ID token). Empty = endpoint returns 503. Also set `NEXT_PUBLIC_GOOGLE_CLIENT_ID` for the frontend button |
+| `TELEMETRY_WEBHOOK_SECRET` | shared secret for device telemetry. Without it every webhook request is rejected |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Google sign-in
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Sign-in only: the Google account must use the email of an existing, active user (accounts are still created by a SUPERADMIN). Flow: the login page shows Google's button, Google returns an ID token, the page posts it to `POST /api/auth/google`, and the server verifies it with `google-auth-library` (signature, expiry, audience, verified email).
 
-## Deploy on Vercel
+Setup:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Google Cloud Console > APIs & Services > Credentials > Create credentials > OAuth client ID > **Web application**.
+2. Add **Authorized JavaScript origins**: `http://localhost:3000` (and your production origin). No redirect URI is needed.
+3. Put the client ID in `.env`, in both variables (same value), then restart the server:
+   ```
+   GOOGLE_CLIENT_ID=<id>.apps.googleusercontent.com
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID=<id>.apps.googleusercontent.com
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Leave both empty to keep Google disabled: the login button then explains it is not configured and the endpoint answers 503. The first successful Google login stamps `googleLinkedAt` (shown in Settings > Google Account).
+
+## Telemetry webhook
+
+One endpoint: `POST /api/webhooks/telemetry/<TELEMETRY_WEBHOOK_SECRET>`. The secret is the last part of the URL, which is what the firmware builds (`CENTRA_HOST + CENTRA_TOKEN`), so no header is needed. Accepts one reading, an array, `{ "data": [...] }`, or the firmware envelope `{ "type": "telemetry", "data": {...}, "metadata": {...} }`. Max `TELEMETRY_WEBHOOK_MAX_BATCH` items per request. A wrong or missing secret returns 401.
+
+```bash
+curl -X POST http://localhost:3000/api/webhooks/telemetry/$TELEMETRY_WEBHOOK_SECRET \
+  -H "Content-Type: application/json" \
+  -d @scripts/sample-telemetry.json
+
+curl -X POST http://localhost:3000/api/webhooks/telemetry/$TELEMETRY_WEBHOOK_SECRET \
+  -H "Content-Type: application/json" \
+  -d @scripts/sample-telemetry-batch.json
+```
+
+The device's `worker_id` must match a registered Worker Node's `deviceWorkerId`. Unknown devices are rejected, never auto-registered.
+
+## Tests
+
+`npm run test:smoke` runs the HTTP scenarios against a live server, database and Redis. Start the server with a fast OTP cooldown and its output in a file (the OTPs are read from it):
+
+```bash
+OTP_RESEND_COOLDOWN_SECONDS=2 MAIL_DRIVER=log TELEMETRY_WEBHOOK_SECRET=test-secret npm run start > /tmp/server.log 2>&1 &
+SMOKE_LOG_FILE=/tmp/server.log TELEMETRY_WEBHOOK_SECRET=test-secret OTP_RESEND_COOLDOWN_SECONDS=2 \
+SUPERADMIN_EMAIL=... SUPERADMIN_PASSWORD=... npm run test:smoke
+```
+
+The test creates and removes its own license, organizations, users and devices.

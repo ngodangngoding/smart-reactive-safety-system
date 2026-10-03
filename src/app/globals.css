@@ -1,26 +1,240 @@
 @import "tailwindcss";
 
+/* Tokens follow the approved redesign. Dark values were not drawn in the
+   design; they keep the same relationships. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f5f7;
+  --card: #ffffff;
+  --surface-subtle: #f8f9fb;
+  --segment-track: #f1f3f6;
+  --segment-track-page: #ebedf1;
+
+  --border: #e6e8ec;
+  --border-subtle: #eef0f3;
+  --border-faint: #f1f3f6;
+  --border-strong: #d4d8df;
+
+  --foreground: #0f172a;
+  --text-secondary: #475467;
+  --text-button-secondary: #344054;
+  --muted-foreground: #667085;
+  --text-cell: #374151;
+  --text-th: #6b7689;
+  --text-disabled: #98a2b3;
+  --text-group: #8a94a6;
+
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #eef3ff;
+  --primary-soft-foreground: #1e40af;
+  --nav-active-foreground: #1d4ed8;
+  --ring: #2563eb;
+
+  --success: #16a34a;
+  --success-soft: #e9f8ef;
+  --success-soft-foreground: #15803d;
+  --warning: #d97706;
+  --warning-soft: #fef4e2;
+  --warning-soft-foreground: #b45309;
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
+  --danger-soft-foreground: #b91c1c;
+  --danger-tint: #fff7f7;
+  --danger-border: #f3c7c7;
+  --neutral: #98a2b3;
+  --neutral-soft: #f1f3f6;
+  --neutral-soft-foreground: #475467;
+
+  --accent-purple: #7c3aed;
+  --accent-purple-soft: #f3eeff;
+
+  --series-x: #2563eb;
+  --series-y: #0d9488;
+  --series-z: #ea580c;
+  --gauge-track: #eef0f3;
+
+  --elev-segment: 0 1px 2px rgba(16, 24, 40, 0.1);
+  --elev-control: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --elev-overlay: 0 1px 2px rgba(16, 24, 40, 0.04), 0 12px 32px -12px rgba(16, 24, 40, 0.12);
+  --elev-toast: 0 12px 32px -12px rgba(16, 24, 40, 0.25);
+}
+
+:root[data-theme="dark"] {
+  --background: #0b1120;
+  --card: #131b2e;
+  --surface-subtle: #172036;
+  --segment-track: #1a2337;
+  --segment-track-page: #1a2337;
+  --border: #263449;
+  --border-subtle: #1e2a40;
+  --border-faint: #1e2a40;
+  --border-strong: #33445e;
+  --foreground: #e5eaf3;
+  --text-secondary: #b4c0d3;
+  --text-button-secondary: #d5dce8;
+  --muted-foreground: #94a3b8;
+  --text-cell: #d5dce8;
+  --text-th: #8a98ad;
+  --text-disabled: #64748b;
+  --text-group: #7c8ba3;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-soft: rgba(59, 130, 246, 0.15);
+  --primary-soft-foreground: #93b4ff;
+  --nav-active-foreground: #93b4ff;
+  --ring: #3b82f6;
+  --success: #22c55e;
+  --success-soft: rgba(34, 197, 94, 0.14);
+  --success-soft-foreground: #4ade80;
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.14);
+  --warning-soft-foreground: #fbbf24;
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.14);
+  --danger-soft-foreground: #f87171;
+  --danger-tint: rgba(239, 68, 68, 0.08);
+  --danger-border: rgba(239, 68, 68, 0.35);
+  --neutral: #64748b;
+  --neutral-soft: #1a2337;
+  --neutral-soft-foreground: #b4c0d3;
+  --accent-purple: #a78bfa;
+  --accent-purple-soft: rgba(167, 139, 250, 0.15);
+  --gauge-track: #1e2a40;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-card: var(--card);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-segment-track: var(--segment-track);
+  --color-segment-track-page: var(--segment-track-page);
+
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-faint: var(--border-faint);
+  --color-border-strong: var(--border-strong);
+
+  --color-muted-foreground: var(--muted-foreground);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-button-secondary: var(--text-button-secondary);
+  --color-text-cell: var(--text-cell);
+  --color-text-th: var(--text-th);
+  --color-text-disabled: var(--text-disabled);
+  --color-text-group: var(--text-group);
+
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+  --color-nav-active-foreground: var(--nav-active-foreground);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-soft-foreground: var(--success-soft-foreground);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-foreground: var(--warning-soft-foreground);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-soft-foreground: var(--danger-soft-foreground);
+  --color-danger-tint: var(--danger-tint);
+  --color-danger-border: var(--danger-border);
+  --color-neutral: var(--neutral);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-soft-foreground: var(--neutral-soft-foreground);
+
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-purple-soft: var(--accent-purple-soft);
+
+  --color-series-x: var(--series-x);
+  --color-series-y: var(--series-y);
+  --color-series-z: var(--series-z);
+  --color-gauge-track: var(--gauge-track);
+
+  --shadow-segment: var(--elev-segment);
+  --shadow-control: var(--elev-control);
+  --shadow-overlay: var(--elev-overlay);
+  --shadow-toast: var(--elev-toast);
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+
+  --font-sans: var(--font-satoshi), "Satoshi", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  font-size: 14px;
+}
+
+html,
+body {
+  /* A single element even 1px wider than the viewport (a table, a nowrap row) must never let the
+     whole page be dragged sideways on mobile. Anything that genuinely needs horizontal scroll
+     (tables) opts in locally with its own overflow-x-auto wrapper. overscroll-behavior-x stops the
+     touch rubber-band bounce some mobile browsers still allow at the edge even once there is
+     nothing left to actually scroll into. */
+  overflow-x: hidden;
+  max-width: 100vw;
+  overscroll-behavior-x: none;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Keep the no-key OpenStreetMap layer readable when the application uses dark mode. */
+.map-tiles-dark {
+  filter: brightness(0.6) invert(1) contrast(2.5) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+
+/* Leaflet's popup ships hardcoded white/black; follow the app theme instead. */
+.leaflet-popup-content-wrapper {
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  box-shadow: var(--elev-toast, 0 8px 24px rgba(16, 24, 40, 0.16));
+}
+.leaflet-popup-tip {
+  background: var(--card);
+  box-shadow: none;
+}
+.leaflet-popup-content {
+  margin: 10px 12px;
+}
+.leaflet-popup-close-button {
+  color: var(--muted-foreground) !important;
+}
+
+/* Visible keyboard focus on every theme. */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up {
+    animation: none;
+  }
 }
